@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+.links line {
+  stroke: #999;
+  stroke-opacity: 0.6;
+}
+
+.nodes circle {
+  stroke: #fff;
+  stroke-width: 1.5px;
+}
+
+    .bubble{
+      opacity: 1;
+      transition: opacity 0.3s;
+    }
+
+    .bubble:hover text{
+      opacity: 1;
+    }
+
+    .bubble:hover circle{
+      fill-opacity: 1;
+    }
+    div.tooltip { 
+      position: absolute;     
+      text-align: left; 
+      margin-left: 2px    
+      width: 150px;          
+      height: 30px;         
+      padding: 1px;       
+      font: 12px sans-serif;    
+      background: #D5E4DF;
+      border-style: solid;
+      border-width: 1px;
+      border-color: Black;
+      border-radius:3px;      
+      pointer-events: none;     
+      }
+
+</style>
+<head>
+  <title>Force directed graph</title>
+  <h1 align="center">COMPSCI 590V -  Data Visualisation and Exploration</h1>
+<h2 align = "center">HW05 - EU institution email network</h2>
+  <h3 align = "center">Ramya Sarma</h3>
+</head>
+<body>
+The visualizations below show the history of emails exchanged between the employees in a EU institution.
+Each node represents a user/employee. An edge between two users indicates that an email was exchanged between the two users.
+<ul> 
+<li> Hovering over the nodes on the graph displays its outward edges and also information about the user</li>
+<li> Hovering over the nodes on the scatterplot displaysmore info about the user </li>
+<li> Clicking on a node/User on the graph displays information about the department  the user belongs to</li>
+<li> We can use the drop down menu to view department wise scatterplot </li>
+<li> The force directed graph has drag featured enabled </li>
+</ul>
+
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="https://d3js.org/d3-scale-chromatic.v1.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.24.0/d3-legend.min.js"></script>
+     <script src="d3.layout.cloud.js"></script>
+<script>
+
+// Margin variables
+var margin = {top: 30, right: 50, bottom: 30, left: 50};
+var innerWidth = 960 - margin.left - margin.right;
+var innerHeight = 500 - margin.top - margin.bottom;
+
+var height = 700;
+var width = 700;
+var gap = 15;
+var radius = 6;
+
+
+//SVG for the force directed graph
+var svg1 = d3.select("body")
+             .append("svg")
+             .attr("id","svg1")
+             .attr("height",700)
+             .attr("width",700/*width+width*0.30*/);
+// SVG for the scatter plot
+var svg2 = d3.select("body")
+             .append("svg")
+             .attr("x", 700)
+            // .attr("transform", "translate(" + (width+width*0.30+gap) + ")")
+             .attr("id","svg2")
+             .attr("height",700/*height*0.75*/)
+             .attr("width",700/*width*0.70*/);
+
+
+// Appending rectangle element for each SVG element
+svg1.append("rect")
+    .attr("height", 700)
+    .attr("width", 700)
+    .attr("stroke", "black")
+    .attr("fill", "white")
+    .attr("stroke-width", 2);
+
+svg2.append("rect")
+    .attr("height", 700)
+    .attr("width", 700)
+    .attr("stroke", "black")
+    .attr("fill", "white")
+    .attr("stroke-width", 2);
+
+// Title for the scatterplot
+svg2.append("text")
+        .attr("x", 450)             
+        .attr("y", 30)
+        .attr("text-anchor", "middle")  
+        .style("font-size", "16px") 
+        .style("text-decoration", "underline")  
+        .text("User ID vs No. of emails exchanged");
+
+
+var g = //d3.select("#svg1")
+        svg1.append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+var word_frequency_list = 
+[
+{"text":"study","size":40, "type":"all"},
+{"text":"motion","size":15, "type":"all"},
+{"text":"forces","size":10, "type":"all"},
+{"text":"electricity","size":15, "type":"all"},
+{"text":"movement","size":10, "type":"all"},
+{"text":"relation","size":5, "type":"all"},
+{"text":"things","size":10, "type":"all"},
+{"text":"force","size":5, "type":"all"}
+];
+
+var noun_list = 
+[
+{"text":"aaa","size":40, "type":"noun"},
+{"text":"aa","size":15, "type":"noun"},
+{"text":"aa","size":10, "type":"noun"},
+{"text":"electricity","size":15, "type":"noun"},
+{"text":"movement","size":10, "type":"noun"},
+{"text":"relation","size":5, "type":"noun"},
+{"text":"things","size":10, "type":"noun"},
+{"text":"force","size":5, "type":"noun"}
+
+];
+var verb_list = 
+[
+{"text":"verb","size":40, "type":"noun"},
+{"text":"aa","size":15, "type":"noun"},
+{"text":"aa","size":10, "type":"noun"},
+{"text":"electricity","size":15, "type":"noun"},
+{"text":"movement","size":10, "type":"noun"},
+{"text":"relation","size":5, "type":"noun"},
+{"text":"things","size":10, "type":"noun"},
+{"text":"force","size":5, "type":"noun"}
+
+];
+
+
+/*var color = d3.scaleLinear()
+        .domain([0,1,2,3,4,5,6,10,15,20,100])
+        .range(["#ddd", "#ccc", "#bbb", "#aaa", "#999", "#888", "#777", "#666", "#555", "#444", "#333", "#222"]);
+*/
+
+//Dropdown menu options
+var labels= ['All','Noun','Verb'];
+var color = d3.scaleOrdinal(d3.schemeCategory20b); 
+
+
+var span = d3.select('body').append('span')
+    .text('Select department name: ')
+    .attr("x", 600)
+    .attr("y", 20); 
+
+var select = d3.select('body')
+  .append('select')
+    .attr('class','select')
+    .on('change',onchange)
+
+var options = select
+  .selectAll('option')
+  .data(labels).enter()
+  .append('option')
+    .text(function (d) { return d; });
+// Define the div for the tooltip
+    var div = d3.select("body").append("div") 
+                  .attr("class", "tooltip")       
+                  .style("opacity", 0);
+
+var words = d3.layout.cloud().size([800, 300])
+    .words(word_frequency_list)
+    .rotate(0)
+    .fontSize(function(d) { return d.size; })
+    .on("end", draw)
+    .start();
+
+function onchange() {
+d3.selectAll("#svg1").select("g").selectAll("text").remove();
+console.log(this.value);
+var myoption = this.value;
+
+if(myoption == 'All')
+{
+
+words = word_frequency_list;
+
+var words = d3.layout.cloud().size([800, 300])
+    .words(word_frequency_list)
+    .rotate(0)
+    .fontSize(function(d) { return d.size; })
+    .on("end", draw)
+    .start();
+}
+if(myoption == "Noun")
+{
+  
+  //d3.selectAll("#svg1").select("#g").select("g").remove();
+
+d3.layout.cloud().size([800, 300])
+    .words(noun_list)
+    .rotate(0)
+    .fontSize(function(d) { return d.size; })
+    .on("end", draw)
+    .start();
+}
+if(myoption == "Verb")
+{
+  
+  //d3.selectAll("#svg1").select("#g").select("g").remove();
+
+d3.layout.cloud().size([800, 300])
+    .words(verb_list)
+    .rotate(0)
+    .fontSize(function(d) { return d.size; })
+    .on("end", draw)
+    .start();
+}
+};
+
+
+function draw(words) {
+d3.selectAll("#svg1").select("#g").select("g").remove();
+  console.log(words);
+  g.append("g")
+    .attr("width", 850)
+    .attr("height", 350)
+    .attr("class", "wordcloud")
+    .append("g")
+    // without the transform, words words would get cutoff to the left and top, they would
+    // appear outside of the SVG area
+    .attr("transform", "translate(320,200)")
+    .selectAll("text")
+    .data(words)
+    .enter().append("text")
+    .style("font-size", function(d) { return d.size + "px"; })
+    .style("fill", function(d, i) { return color(d.type); })
+    .on("click", function(d, i) { clicked(d.type); })
+    .attr("transform", function(d) {
+        return "translate(" + [d.x, d.y] + ")rotate(" + d.rotate + ")";
+    })
+    .text(function(d) { return d.text; })
+         .on("mouseover", function(d) {    
+            div.transition()    
+                .duration(200)    
+                .style("opacity", .9);    
+            div.html('<b>'+ 'Word: ' +'</b>'+d.text+'<br>'+'<b>'+ 'Frequency: ' +'</b>'+d.size)  
+                .style("left", (d3.event.pageX) + "px")   
+                .style("top", (d3.event.pageY - 28) + "px");  
+            })          
+        .on("mouseout", function(d) {   
+            div.transition()    
+                .duration(500)    
+                .style("opacity", 0); 
+        });
+
+}
+   
+function clicked(type)
+{
+  console.log(type);
+}
+
+
+</script>
+</body>
